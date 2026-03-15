@@ -104,7 +104,7 @@ elif mode == "Soạn Bệnh Án (Lâm sàng)":
 
                     ⚠️ NGUYÊN TẮC ZERO-HALLUCINATION (CẤM BỊA ĐẶT DỮ LIỆU):
                     1. BẢO TOÀN DỮ LIỆU THÔ: Bạn CHỈ ĐƯỢC PHÉP sử dụng các triệu chứng (âm tính/dương tính), chỉ số sinh hiệu, kết quả cận lâm sàng có xuất hiện trong phần "Dữ liệu từ sinh viên".
-                    2. XỬ LÝ DỮ LIỆU TRỐNG: Đối với bất kỳ phần nào trong cấu trúc 16 phần (đặc biệt là Khám Lâm Sàng các hệ cơ quan, Tiền căn) mà sinh viên không ghi chú, BẮT BUỘC phải ghi chính xác cụm từ: "[Không có thông tin ghi nhận trong giấy nháp]". 
+                    2. XỬ LÝ DỮ LIỆU TRỐNG: Đối với bất kỳ phần nào trong cấu trúc 16 phần (đặc biệt là Khám Lâm Sàng các hệ cơ quan, Tiền căn) mà sinh viên không ghi chú, BẮT BUỘC phải ghi chính xác cụm từ: "[Chưa ghi nhận đề nghị khám bổ sung lại!]". 
                     3. CẤM SUY DIỄN TRIỆU CHỨNG ÂM TÍNH: Tuyệt đối KHÔNG tự ý điền các cụm từ như "Bụng mềm", "Không sốt", "Tim đều", "Chưa ghi nhận bất thường" nếu sinh viên không trực tiếp viết ra. Việc tự ý kết luận bình thường khi chưa khám là vi phạm y đức.
 
                     THÁP ƯU TIÊN KIẾN THỨC BIỆN LUẬN:
