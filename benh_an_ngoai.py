@@ -1,99 +1,93 @@
 import streamlit as st
+import google.generativeai as genai
 
-st.set_page_config(page_title="Bệnh Án Ngoại Khoa", layout="wide")
+# 1. Cấu hình trang
+st.set_page_config(page_title="Bệnh Án Ngoại Khoa", layout="centered")
 
-if 'ba_data' not in st.session_state:
-    st.session_state.ba_data = {
-        "ho_ten": "", "tuoi": 0, "gioi_tinh": "Nam", "dia_chi": "",
-        "ly_do_nv": "", "benh_su": "",
-        "wbc": 0.0, "amylase_normal": False,
-        "xquang_liem_hoi": False, "sa_gan_bt": False,
-        "sa_duong_mat_gian": False, "sa_tui_mat_soi": False
-    }
+st.title("Trợ lý AI Soạn Bệnh Án Ngoại Khoa")
+st.write("Điền thông tin theo thứ tự từ trên xuống. Nhấn nút ở cuối trang để hệ thống tự động tổng hợp và cấu trúc bệnh án.")
 
-def update_data(key, value):
-    st.session_state.ba_data[key] = value
+# Gọi API Key từ Secrets
+try:
+    api_key = st.secrets["GEMINI_API_KEY"]
+except KeyError:
+    st.error("Chưa tìm thấy API Key. Vui lòng cài đặt trong mục Settings -> Secrets của Streamlit.")
+    api_key = None
 
-st.sidebar.title("Mục lục Bệnh Án")
-menu = st.sidebar.radio("Chọn phần cần nhập:", 
-                        ["I. Hành chánh & Lý do NV", 
-                         "II. Bệnh sử", 
-                         "III. Cận lâm sàng",
-                         "IV. Biện luận & Xuất Bệnh án"])
+# --- KHỐI 1: THÔNG TIN HÀNH CHÁNH ---
+st.header("I. Phần Hành Chánh")
+col1, col2, col3 = st.columns(3)
+with col1:
+    ho_ten = st.text_input("Họ và tên")
+with col2:
+    tuoi = st.number_input("Tuổi", min_value=0, max_value=120, step=1)
+with col3:
+    gioi_tinh = st.selectbox("Giới tính", ["Nam", "Nữ"])
+dia_chi = st.text_input("Địa chỉ")
 
-# --- PHẦN I: HÀNH CHÁNH ---
-if menu == "I. Hành chánh & Lý do NV":
-    st.header("I. Phần Hành Chánh")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        update_data("ho_ten", st.text_input("Họ và tên", value=st.session_state.ba_data["ho_ten"]))
-    with col2:
-        update_data("tuoi", st.number_input("Tuổi", min_value=0, max_value=120, value=st.session_state.ba_data["tuoi"]))
-    with col3:
-        update_data("gioi_tinh", st.selectbox("Giới tính", ["Nam", "Nữ"], index=["Nam", "Nữ"].index(st.session_state.ba_data["gioi_tinh"])))
-    update_data("dia_chi", st.text_input("Địa chỉ", value=st.session_state.ba_data["dia_chi"]))
-    
-    st.markdown("---")
-    st.header("II. Lý do nhập viện")
-    update_data("ly_do_nv", st.text_area("Bệnh nhân nhập viện vì...", value=st.session_state.ba_data["ly_do_nv"]))
+st.markdown("---")
 
-# --- PHẦN II: BỆNH SỬ ---
-elif menu == "II. Bệnh sử":
-    st.header("III. Bệnh sử")
-    update_data("benh_su", st.text_area("Mô tả diễn tiến bệnh lý", value=st.session_state.ba_data["benh_su"], height=200))
+# --- KHỐI 2: LÝ DO NHẬP VIỆN ---
+st.header("II. Lý do nhập viện")
+ly_do_nv = st.text_input("Bệnh nhân nhập viện vì...")
 
-# --- PHẦN III: CẬN LÂM SÀNG ---
-elif menu == "III. Cận lâm sàng":
-    st.header("Kết quả & Ghi nhận Cận Lâm Sàng")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        st.subheader("1. Xét nghiệm máu")
-        wbc = st.number_input("WBC (K/uL) [TC: 4.6 - 10]", value=st.session_state.ba_data["wbc"], format="%.2f")
-        update_data("wbc", wbc)
-        if wbc > 10.0:
-            st.error("🚩 WBC tăng cao: Thỏa tiêu chuẩn B (Viêm túi mật cấp).")
+st.markdown("---")
+
+# --- KHỐI 3: GHI CHÚ LÂM SÀNG (AI XỬ LÝ) ---
+st.header("III. Ghi chú Lâm sàng & Cận lâm sàng")
+st.info("💡 Mẹo: Bạn chỉ cần gõ vắn tắt, dùng từ viết tắt. AI sẽ tự động chuẩn hóa văn phong và phân bổ vào các mục Bệnh sử, Tiền căn, Khám, Tóm tắt và Biện luận.")
+thong_tin_nhap = st.text_area(
+    "Nhập triệu chứng, chỉ số khám, xét nghiệm...", 
+    height=200,
+    placeholder="VD: Đau HSP 10h sau ăn, âm ỉ, nôn 1 lần ra thức ăn cũ. Khám: M 80, HA 160/90, ấn đau HSP, Murphy (+). Tiền căn: Sỏi túi mật 5 năm. CLS: WBC 22.23 (Neu 87.6%), SA: túi mật 38mm, sỏi 12mm..."
+)
+
+st.markdown("---")
+
+# --- KHỐI 4: NÚT TẠO BỆNH ÁN & KẾT QUẢ ---
+st.header("IV. Hoàn thiện Bệnh Án")
+btn_tao_benh_an = st.button("Tạo Bệnh Án Hoàn Chỉnh", type="primary", use_container_width=True)
+
+if btn_tao_benh_an:
+    if not api_key:
+        st.warning("Hệ thống bị khóa vì thiếu API Key.")
+    elif not thong_tin_nhap or not ho_ten:
+        st.warning("Vui lòng điền tối thiểu Họ tên và Ghi chú lâm sàng.")
+    else:
+        try:
+            genai.configure(api_key=api_key)
+            generation_config = {
+              "temperature": 0.1, 
+              "top_p": 0.9,
+              "top_k": 40,
+              "max_output_tokens": 4096,
+            }
+            model = genai.GenerativeModel(model_name="gemini-1.5-pro", generation_config=generation_config)
+
+            # Tổng hợp dữ liệu đầu vào cho AI
+            du_lieu_tong_hop = f"""
+            - Họ tên: {ho_ten} | Tuổi: {tuoi} | Giới tính: {gioi_tinh}
+            - Địa chỉ: {dia_chi}
+            - Lý do nhập viện: {ly_do_nv}
+            - Ghi chú lâm sàng, tiền căn, cận lâm sàng: {thong_tin_nhap}
+            """
+
+            system_prompt = """
+            Bạn là một Bác sĩ Ngoại khoa dạn dày kinh nghiệm. Dựa trên dữ liệu tổng hợp được cung cấp, hãy biên soạn một "Bệnh án Ngoại khoa" hoàn chỉnh.
+            TUYỆT ĐỐI TUÂN THỦ:
+            1. Trung thực tuyệt đối: KHÔNG sáng tác thêm triệu chứng, chỉ số cận lâm sàng, hay tiền căn không có trong dữ liệu. Nếu thiếu thông tin để biện luận, hãy ghi chú cần đề nghị thêm cận lâm sàng gì.
+            2. Cấu trúc chuẩn 10 phần: I. Hành chánh, II. Lý do nhập viện, III. Bệnh sử, IV. Tiền căn, V. Khám lâm sàng, VI. Tóm tắt bệnh án, VII. Đặt vấn đề, VIII. Biện luận lâm sàng, IX. Chẩn đoán sơ bộ/xác định, X. Hướng điều trị.
+            3. Văn phong y khoa: Khách quan, khoa học. Biện luận logic đi từ triệu chứng đến chẩn đoán, tuân thủ các guideline cập nhật.
+            """
             
-        update_data("amylase_normal", st.checkbox("Amylase máu trong giới hạn bình thường", value=st.session_state.ba_data["amylase_normal"]))
-        
-    with col2:
-        st.subheader("2. Hình ảnh học (SA, X-Quang, CT)")
-        update_data("xquang_liem_hoi", st.checkbox("Ghi nhận liềm hơi/bóng khí tự do", value=st.session_state.ba_data["xquang_liem_hoi"]))
-        update_data("sa_gan_bt", st.checkbox("Siêu âm Gan: Chưa ghi nhận bất thường", value=st.session_state.ba_data["sa_gan_bt"]))
-        update_data("sa_duong_mat_gian", st.checkbox("Siêu âm: Đường mật dãn, tắc mật", value=st.session_state.ba_data["sa_duong_mat_gian"]))
-        update_data("sa_tui_mat_soi", st.checkbox("Siêu âm: Túi mật căng, có sỏi", value=st.session_state.ba_data["sa_tui_mat_soi"]))
-
-# --- PHẦN IV: BIỆN LUẬN & XUẤT ---
-elif menu == "IV. Biện luận & Xuất Bệnh án":
-    st.header("Khung Biện Luận Cận Lâm Sàng Tự Động")
-    
-    bien_luan_text = ""
-    # Xây dựng các câu biện luận dựa trên input
-    if st.session_state.ba_data["wbc"] > 10:
-        bien_luan_text += f"- Công thức máu có bạch cầu tăng ({st.session_state.ba_data['wbc']} K/uL) => Thỏa tiêu chuẩn B Viêm túi mật cấp.\n"
-    if st.session_state.ba_data["amylase_normal"]:
-        bien_luan_text += "- Amylase máu trong khoảng tham chiếu => Không phù hợp, loại trừ chẩn đoán viêm tụy cấp.\n"
-    if not st.session_state.ba_data["xquang_liem_hoi"]:
-        bien_luan_text += "- Hình ảnh học không ghi nhận liềm hơi/bóng khí => Loại trừ thủng bít dạ dày tá tràng.\n"
-    if st.session_state.ba_data["sa_gan_bt"]:
-        bien_luan_text += "- Siêu âm gan chưa ghi nhận bất thường => Loại trừ áp xe gan.\n"
-    if not st.session_state.ba_data["sa_duong_mat_gian"]:
-        bien_luan_text += "- Đường mật trong ngoài gan không dãn => Không có tình trạng tắc mật, không gợi ý viêm đường mật cấp.\n"
-    if st.session_state.ba_data["sa_tui_mat_soi"]:
-        bien_luan_text += "- Siêu âm túi mật căng, có sỏi => Thỏa tiêu chuẩn C (Hình ảnh học) của Viêm túi mật cấp.\n"
-
-    st.text_area("Văn bản biện luận (Có thể chỉnh sửa thêm trước khi in):", value=bien_luan_text, height=200)
-
-    st.markdown("---")
-    st.header("Bệnh Án Hoàn Chỉnh (Nhấn Ctrl + P để lưu PDF)")
-    st.markdown(f"""
-    ### I. HÀNH CHÁNH
-    - **Họ và tên:** {st.session_state.ba_data['ho_ten']} | **Giới tính:** {st.session_state.ba_data['gioi_tinh']} | **Tuổi:** {st.session_state.ba_data['tuoi']}
-    
-    ### II. LÝ DO NHẬP VIỆN & BỆNH SỬ
-    - **Lý do:** {st.session_state.ba_data['ly_do_nv']}
-    - **Bệnh sử:** {st.session_state.ba_data['benh_su']}
-    
-    ### III. BIỆN LUẬN CẬN LÂM SÀNG
-    {bien_luan_text}
-    """)
+            full_prompt = f"{system_prompt}\n\nDữ liệu tổng hợp:\n{du_lieu_tong_hop}\n\nHãy viết bệnh án:"
+            
+            with st.spinner('Hệ thống đang cấu trúc bệnh án...'):
+                response = model.generate_content(full_prompt)
+                
+            st.success("Tạo bệnh án thành công! Nhấn Ctrl + P để lưu dưới dạng PDF.")
+            st.markdown("### KẾT QUẢ BỆNH ÁN")
+            st.markdown(response.text)
+            
+        except Exception as e:
+            st.error(f"Lỗi hệ thống: {e}")
