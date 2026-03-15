@@ -94,7 +94,7 @@ elif mode == "Soạn Bệnh Án (Lâm sàng)":
                     genai.configure(api_key=api_key)
                     # Thiết lập nhiệt độ = 0.1 để đảm bảo tính chính xác, không sáng tạo tùy tiện
                     model = genai.GenerativeModel(
-                        model_name="gemini-1.5-flash", 
+                        model_name="gemini-3-flash-preview", 
                         generation_config={"temperature": 0.1}
                     )
                     
