@@ -85,7 +85,7 @@ elif mode == "Soạn Bệnh Án (Lâm sàng)":
             else:
                 try:
                     genai.configure(api_key=api_key)
-                    model = genai.GenerativeModel(model_name="gemini-1.5-flash", generation_config={"temperature": 0.1})
+                    model = genai.GenerativeModel(model_name="gemini-3-flash-preview", generation_config={"temperature": 0.1})
                     
                     system_prompt = f"""
                     Bạn là một Bác sĩ Nội trú Ngoại khoa xuất sắc. Nhiệm vụ của bạn là hướng dẫn sinh viên bằng cách cấu trúc lại dữ liệu lộn xộn thành Bệnh án chuẩn 16 phần, đồng thời chỉ ra các thiếu sót trong quá trình khám của sinh viên.
