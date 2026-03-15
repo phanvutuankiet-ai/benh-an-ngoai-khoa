@@ -20,7 +20,7 @@ if 'admin_rules' not in st.session_state:
     st.session_state.admin_rules = "Không có quy tắc đặc biệt nào được thiết lập."
 
 # --- 2. GIAO DIỆN QUẢN TRỊ VIÊN (SIDEBAR) ---
-st.sidebar.header("Quyền Quản Trị (Admin)")
+st.sidebar.header("🔐 Quyền Quản Trị (Admin)")
 st.sidebar.caption("Sử dụng mã PIN nội bộ. Tích hợp Firebase sẽ thực hiện ở giai đoạn sau.")
 
 pin_input = st.sidebar.text_input("Nhập mã PIN:", type="password")
@@ -74,9 +74,22 @@ col1, col2 = st.columns([1, 2])
 
 with col1:
     st.subheader("Nhập liệu Lâm sàng")
-    ho_ten_input = st.text_input("Họ và tên bệnh nhân:", placeholder="VD: Đinh Thị Kim Hồng")
-    ghi_chu_nhap = st.text_area("Ghi chú nháp (Triệu chứng, tiền căn, khám, CLS...):", height=400)
-    submit_btn = st.button("Xử lý Bệnh án", type="primary", use_container_width=True)
+    
+    # Sử dụng st.form để đóng gói luồng dữ liệu, khắc phục lỗi State Sync
+    with st.form("clinical_input_form"):
+        # Chia cột cho phần Hành chánh
+        c1, c2, c3 = st.columns([2, 1, 1])
+        with c1:
+            ho_ten_input = st.text_input("Họ và tên:", placeholder="VD: Đinh Thị Kim Hồng")
+        with c2:
+            tuoi_input = st.number_input("Tuổi:", min_value=0, max_value=120, value=30, step=1)
+        with c3:
+            gioi_tinh_input = st.selectbox("Giới tính:", options=["Nam", "Nữ"])
+            
+        ghi_chu_nhap = st.text_area("Ghi chú nháp (Triệu chứng, tiền căn, khám, CLS...):", height=350)
+        
+        # Nút Submit của Form
+        submit_btn = st.form_submit_button("Xử lý Bệnh án", type="primary", use_container_width=True)
 
 # --- 5. LUỒNG XỬ LÝ AI ---
 if submit_btn:
@@ -109,7 +122,7 @@ if submit_btn:
             Dựa vào Tháp ưu tiên, chỉ ra sinh viên đã thiếu sót gì trong việc hỏi bệnh, khám lâm sàng hoặc đề nghị cận lâm sàng.
 
             **PHẦN B: BỆNH ÁN CẤU TRÚC 16 PHẦN (Tuyệt đối tuân thủ khung sau)**
-            I. Hành chánh (Tên: {ho_ten_anonymized})
+            I. Hành chánh (Tên: {ho_ten_anonymized}, Tuổi: {tuoi_input}, Giới tính: {gioi_tinh_input})
             II. Lý do nhập viện
             III. Bệnh sử
             IV. Tiền căn (Bản thân và Gia đình)
