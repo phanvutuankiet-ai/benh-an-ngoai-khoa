@@ -63,7 +63,7 @@ if btn_tao_benh_an:
               "max_output_tokens": 4096,
             }
             # Sử dụng mô hình gemini-3-flash
-            model = genai.GenerativeModel(model_name="gemini-3-flash", generation_config=generation_config)
+            model = genai.GenerativeModel(model_name="gemini-3-flash-preview", generation_config=generation_config)
 
             # Tổng hợp dữ liệu đầu vào cho AI
             du_lieu_tong_hop = f"""
