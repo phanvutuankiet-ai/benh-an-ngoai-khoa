@@ -1,0 +1,18 @@
+# Bảo mật cấu hình Streamlit (TUYỆT ĐỐI KHÔNG XÓA DÒNG NÀY)
+.streamlit/
+secrets.toml
+
+# Môi trường ảo Python
+venv/
+env/
+.env
+
+# File tạm và cache của hệ thống
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# File rác của hệ điều hành
+.DS_Store
+Thumbs.db
