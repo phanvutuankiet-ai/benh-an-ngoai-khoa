@@ -3,56 +3,70 @@ import google.generativeai as genai
 import os
 import re
 
-# --- 1. CẤU HÌNH HỆ THỐNG ---
+# --- 1. CẤU HÌNH HỆ THỐNG & BẢO MẬT ---
 st.set_page_config(page_title="AI Bác Sĩ Nội Trú - Chuẩn Hóa Bệnh Án", layout="wide")
 
+# Lấy API Key và Mã PIN từ Streamlit Secrets
 try:
     api_key = st.secrets["GEMINI_API_KEY"]
+    ADMIN_PIN_SECRET = st.secrets["ADMIN_PIN"]
     genai.configure(api_key=api_key)
-except KeyError:
-    st.error("LỖI BẢO MẬT: Chưa tìm thấy API Key trong mục Settings -> Secrets.")
+except KeyError as e:
+    st.error(f"LỖI BẢO MẬT: Chưa tìm thấy {e} trong file secrets.toml.")
     st.stop()
 
-# --- 2. CÁC HÀM TIỀN XỬ LÝ (PRE-PROCESSING) ---
+# Khởi tạo Session State cho Admin Rules
+if 'admin_rules' not in st.session_state:
+    st.session_state.admin_rules = "Không có quy tắc đặc biệt nào được thiết lập."
 
+# --- 2. GIAO DIỆN QUẢN TRỊ VIÊN (SIDEBAR) ---
+st.sidebar.header("Quyền Quản Trị (Admin)")
+st.sidebar.caption("Sử dụng mã PIN nội bộ. Tích hợp Firebase sẽ thực hiện ở giai đoạn sau.")
+
+pin_input = st.sidebar.text_input("Nhập mã PIN:", type="password")
+
+if pin_input == ADMIN_PIN_SECRET:
+    st.sidebar.success("Đã xác thực quyền Admin!")
+    st.session_state.admin_rules = st.sidebar.text_area(
+        "Thiết lập Quy tắc Lâm sàng Tối thượng (Ưu tiên 1):", 
+        value=st.session_state.admin_rules, 
+        height=200,
+        help="Ví dụ: Bắt buộc dùng thang điểm Alvarado cho viêm ruột thừa."
+    )
+elif pin_input != "":
+    st.sidebar.error("Mã PIN không chính xác!")
+
+# --- 3. CÁC HÀM TIỀN XỬ LÝ (PRE-PROCESSING) ---
 def anonymize_name(full_name):
-    """Ẩn danh hóa tên bệnh nhân (Ví dụ: Nguyễn Văn A -> N.V.A)"""
+    """Ẩn danh hóa tên (VD: Đinh Thị Kim Hồng -> Đ.T.K.H)"""
     if not full_name:
         return ""
     words = full_name.strip().split()
     return ".".join([word[0].upper() for word in words])
 
 def load_and_filter_guideline(draft_notes):
-    """Thuật toán RAG cục bộ: Lọc phác đồ dựa trên từ khóa trong ghi chú nháp"""
+    """Thuật toán RAG cục bộ: Lọc phác đồ theo từ khóa"""
     guideline_path = "phac_do_ngoai_khoa.txt"
     if not os.path.exists(guideline_path):
-        return "Không tìm thấy file phac_do_ngoai_khoa.txt. Áp dụng y văn chuẩn thế giới."
+        return "[HỆ THỐNG] Không tìm thấy file phac_do_ngoai_khoa.txt."
     
     try:
         with open(guideline_path, "r", encoding="utf-8") as file:
             full_text = file.read()
             
-        # Trích xuất từ khóa có ý nghĩa từ ghi chú nháp (độ dài > 3 ký tự)
         keywords = set([w.lower() for w in re.findall(r'\b\w+\b', draft_notes) if len(w) > 3])
-        
-        # Chia nhỏ phác đồ thành các đoạn và lọc đoạn có chứa từ khóa
         paragraphs = full_text.split('\n\n')
-        relevant_chunks = []
-        for p in paragraphs:
-            if any(kw in p.lower() for kw in keywords):
-                relevant_chunks.append(p)
+        relevant_chunks = [p for p in paragraphs if any(kw in p.lower() for kw in keywords)]
                 
-        # Nếu tìm thấy, ghép tối đa 10 đoạn liên quan nhất để tiết kiệm Token
         if relevant_chunks:
             return "\n\n".join(relevant_chunks[:10])
         else:
-            return "Không tìm thấy nội dung phác đồ khớp với từ khóa. Áp dụng y văn chuẩn thế giới."
+            return "[HỆ THỐNG] Phác đồ cục bộ không có nội dung khớp với ca bệnh này."
             
     except Exception as e:
-        return f"Lỗi đọc phác đồ: {str(e)}"
+        return f"[LỖI RAG]: {str(e)}"
 
-# --- 3. GIAO DIỆN NGƯỜI DÙNG (UI) ---
-
+# --- 4. GIAO DIỆN NGƯỜI DÙNG (UI) CHÍNH ---
 st.title("Hệ Thống Trợ Lý AI Ngoại Khoa")
 st.markdown("---")
 
@@ -60,74 +74,71 @@ col1, col2 = st.columns([1, 2])
 
 with col1:
     st.subheader("Nhập liệu Lâm sàng")
-    ho_ten_input = st.text_input("Họ và tên bệnh nhân (Hệ thống sẽ tự động ẩn danh):", placeholder="VD: Đinh Thị Kim Hồng")
-    ghi_chu_nhap = st.text_area("Ghi chú nháp (Triệu chứng, tiền căn, khám, CLS...):", height=400, placeholder="Nhập mọi thông tin bạn ghi nhận được tại đây...")
+    ho_ten_input = st.text_input("Họ và tên bệnh nhân:", placeholder="VD: Đinh Thị Kim Hồng")
+    ghi_chu_nhap = st.text_area("Ghi chú nháp (Triệu chứng, tiền căn, khám, CLS...):", height=400)
     submit_btn = st.button("Xử lý Bệnh án", type="primary", use_container_width=True)
 
-# --- 4. LUỒNG XỬ LÝ AI ---
-
+# --- 5. LUỒNG XỬ LÝ AI ---
 if submit_btn:
     if not ghi_chu_nhap.strip():
         st.warning("Vui lòng nhập ghi chú nháp trước khi xử lý.")
     else:
-        with st.spinner("Hệ thống đang tiền xử lý dữ liệu và phân tích y văn..."):
-            
-            # Bước 1 & 2: Ẩn danh và Lọc RAG
+        with st.spinner("Đang phân tích Tháp ưu tiên và xử lý dữ liệu..."):
             ho_ten_anonymized = anonymize_name(ho_ten_input)
             filtered_guideline = load_and_filter_guideline(ghi_chu_nhap)
+            admin_rules_current = st.session_state.admin_rules
             
-            # Bước 3: Đóng gói System Prompt
             system_prompt = f"""
-            Bạn là một Bác sĩ Nội trú Ngoại khoa xuất sắc. Nhiệm vụ của bạn là chuẩn hóa ghi chú nháp lộn xộn của sinh viên thành một Bệnh án Ngoại khoa chuẩn học thuật, đánh giá thiếu sót và lập báo cáo bàn giao ca trực.
+            Bạn là một Bác sĩ Nội trú Ngoại khoa. Nhiệm vụ của bạn là chuẩn hóa bệnh án và lập báo cáo bàn giao.
 
-            NGUYÊN TẮC TỐI THƯỢNG (ZERO-HALLUCINATION PROTOCOL):
-            - Tuyệt đối không tự suy diễn, bịa đặt thêm triệu chứng, tiền căn hay kết quả khám nếu giấy nháp không đề cập.
-            - Mọi mục trong 16 phần bệnh án nếu KHÔNG CÓ dữ kiện, BẮT BUỘC ghi chính xác chuỗi sau: "[Không có thông tin ghi nhận trong giấy nháp]".
+            ### THÁP ƯU TIÊN TRI THỨC (BẮT BUỘC TUÂN THỦ NGHIÊM NGẶT TỪ TRÊN XUỐNG):
+            1. ƯU TIÊN 1 - QUY TẮC QUẢN TRỊ (ADMIN RULES): {admin_rules_current}
+               -> Đây là mệnh lệnh tối cao. Bắt buộc áp dụng vào nhận xét và biện luận.
+            2. ƯU TIÊN 2 - SỰ THẬT LÂM SÀNG (ZERO-HALLUCINATION):
+               -> Ghi chú của sinh viên: "{ghi_chu_nhap}"
+               -> Tuyệt đối không tự bịa thêm triệu chứng âm tính hay dương tính nếu sinh viên không ghi. Thiếu dữ liệu thì ghi: "[Không có thông tin ghi nhận trong giấy nháp]".
+            3. ƯU TIÊN 3 - PHÁC ĐỒ CỤC BỘ (RAG):
+               -> Trích xuất từ kho dữ liệu: "{filtered_guideline}"
+               -> Dùng phác đồ này để đối chiếu xem sinh viên chẩn đoán đúng chưa, thiếu sót gì.
+            4. ƯU TIÊN 4 - Y VĂN THẾ GIỚI:
+               -> Chỉ sử dụng trí tuệ AI có sẵn NẾU Phác đồ cục bộ (Ưu tiên 3) không có thông tin về bệnh lý này. Nếu có xung đột, phải nghe theo Phác đồ cục bộ.
 
-            DỮ LIỆU ĐẦU VÀO:
-            - Họ tên BN (đã ẩn danh): {ho_ten_anonymized}
-            - Ghi chú nháp từ sinh viên: {ghi_chu_nhap}
-            - Phác đồ tham khảo (đã lọc theo keyword): {filtered_guideline}
+            ### YÊU CẦU ĐẦU RA (Trình bày 3 phần rõ rệt):
 
-            YÊU CẦU ĐẦU RA (Trình bày rõ 3 phần):
+            **PHẦN A: NHẬN XÉT CỦA BS. NỘI TRÚ**
+            Dựa vào Tháp ưu tiên, chỉ ra sinh viên đã thiếu sót gì trong việc hỏi bệnh, khám lâm sàng hoặc đề nghị cận lâm sàng.
 
-            ### PHẦN A: NHẬN XÉT & CHỈNH SỬA CỦA BS. NỘI TRÚ
-            Đối chiếu Ghi chú nháp với Phác đồ tham khảo (hoặc y văn), chỉ ra sinh viên đã quên khám/hỏi những triệu chứng cơ năng, thực thể hoặc cận lâm sàng quan trọng nào để củng cố chẩn đoán.
-
-            ### PHẦN B: BỆNH ÁN CẤU TRÚC 16 PHẦN
-            I. Hành chánh (Ghi nhận tên ẩn danh: {ho_ten_anonymized})
+            **PHẦN B: BỆNH ÁN CẤU TRÚC 16 PHẦN (Tuyệt đối tuân thủ khung sau)**
+            I. Hành chánh (Tên: {ho_ten_anonymized})
             II. Lý do nhập viện
             III. Bệnh sử
-            IV. Tiền căn bản thân
-            V. Tiền căn gia đình
-            VI. Lược qua các cơ quan
-            VII. Khám lâm sàng toàn thân
-            VIII. Khám lâm sàng cơ quan bệnh lý
-            IX. Tóm tắt bệnh án
-            X. Đặt vấn đề
-            XI. Chẩn đoán sơ bộ & Phân biệt
-            XII. Đề nghị cận lâm sàng
-            XIII. Kết quả cận lâm sàng (nếu có)
-            XIV. Biện luận lâm sàng và cận lâm sàng
-            XV. Chẩn đoán xác định
+            IV. Tiền căn (Bản thân và Gia đình)
+            V. Lược qua các cơ quan
+            VI. Khám lâm sàng
+            VII. Tóm tắt bệnh án
+            VIII. Đặt vấn đề
+            IX. Chẩn đoán sơ bộ
+            X. Chẩn đoán phân biệt
+            XI. Đề nghị cận lâm sàng
+            XII. Kết quả cận lâm sàng
+            XIII. Biện luận lâm sàng
+            XIV. Biện luận cận lâm sàng
+            XV. Chẩn đoán
             XVI. Hướng điều trị và Tiên lượng
 
-            ### PHẦN C: TÓM TẮT BÀN GIAO (SOAP)
-            Trích xuất thông tin gọn gàng từ Phần B để bàn giao:
-            - S (Subjective): Lời khai, cơ năng chính.
-            - O (Objective): Sinh hiệu, thực thể dương tính, CLS hiện có.
-            - A (Assessment): Chẩn đoán sơ bộ/xác định, đánh giá mức độ.
-            - P (Plan): Hướng xử trí, CLS cần làm gấp, theo dõi.
+            **PHẦN C: TÓM TẮT BÀN GIAO (SOAP)**
+            - S (Subjective): Lời khai, cơ năng.
+            - O (Objective): Sinh hiệu, thực thể, CLS.
+            - A (Assessment): Chẩn đoán, mức độ nặng.
+            - P (Plan): Hướng xử trí.
             """
 
             try:
-                # Gọi mô hình theo đúng chỉ định
                 model = genai.GenerativeModel("gemini-3-flash-preview")
                 response = model.generate_content(system_prompt)
                 
                 with col2:
                     st.subheader("Kết quả Chuẩn hóa")
                     st.markdown(response.text)
-                    
             except Exception as e:
-                st.error(f"Lỗi khi kết nối với AI: {str(e)}")
+                st.error(f"Lỗi kết nối AI: {str(e)}")
