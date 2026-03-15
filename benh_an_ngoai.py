@@ -35,7 +35,7 @@ st.markdown("---")
 
 # --- KHỐI 3: GHI CHÚ LÂM SÀNG (AI XỬ LÝ) ---
 st.header("III. Ghi chú Lâm sàng & Cận lâm sàng")
-st.info("💡 Mẹo: Bạn chỉ cần gõ vắn tắt, dùng từ viết tắt. AI sẽ tự động chuẩn hóa văn phong và phân bổ vào các mục Bệnh sử, Tiền căn, Khám, Tóm tắt và Biện luận.")
+st.info("Mẹo: Bạn chỉ cần gõ vắn tắt, dùng từ viết tắt. AI sẽ tự động chuẩn hóa văn phong và phân bổ vào các mục Bệnh sử, Tiền căn, Khám, Tóm tắt và Biện luận.")
 thong_tin_nhap = st.text_area(
     "Nhập triệu chứng, chỉ số khám, xét nghiệm...", 
     height=200,
@@ -62,7 +62,8 @@ if btn_tao_benh_an:
               "top_k": 40,
               "max_output_tokens": 4096,
             }
-            model = genai.GenerativeModel(model_name="gemini-1.5-pro", generation_config=generation_config)
+            # Sử dụng mô hình gemini-3-flash
+            model = genai.GenerativeModel(model_name="gemini-3-flash", generation_config=generation_config)
 
             # Tổng hợp dữ liệu đầu vào cho AI
             du_lieu_tong_hop = f"""
@@ -77,7 +78,7 @@ if btn_tao_benh_an:
             TUYỆT ĐỐI TUÂN THỦ:
             1. Trung thực tuyệt đối: KHÔNG sáng tác thêm triệu chứng, chỉ số cận lâm sàng, hay tiền căn không có trong dữ liệu. Nếu thiếu thông tin để biện luận, hãy ghi chú cần đề nghị thêm cận lâm sàng gì.
             2. Cấu trúc chuẩn 10 phần: I. Hành chánh, II. Lý do nhập viện, III. Bệnh sử, IV. Tiền căn, V. Khám lâm sàng, VI. Tóm tắt bệnh án, VII. Đặt vấn đề, VIII. Biện luận lâm sàng, IX. Chẩn đoán sơ bộ/xác định, X. Hướng điều trị.
-            3. Văn phong y khoa: Khách quan, khoa học. Biện luận logic đi từ triệu chứng đến chẩn đoán, tuân thủ các guideline cập nhật.
+            3. Văn phong y khoa: Khách quan, khoa học. Biện luận logic đi từ triệu chứng đến chẩn đoán, tuân thủ các guideline cập nhật (ví dụ: Tokyo Guidelines đối với bệnh lý đường mật).
             """
             
             full_prompt = f"{system_prompt}\n\nDữ liệu tổng hợp:\n{du_lieu_tong_hop}\n\nHãy viết bệnh án:"
